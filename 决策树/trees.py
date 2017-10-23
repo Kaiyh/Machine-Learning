@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: UTF-8 -*-
+#-*- coding: UTF-8 -*-
 
 from numpy import *
 from math import log
@@ -7,7 +7,7 @@ import operator
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
+# I: create data set & calculate entropy
 
 def createDataSet():
 	"""create the dataSet"""
@@ -18,7 +18,6 @@ def createDataSet():
 
 def calcShannonEnt(dataSet):
 	"""calculate the Entropy of dataSet"""
-	numEntries = len(dataSet)
 	labelCounts = {}# the dictionary of labels
 	for featVec in dataSet:
 		currentLabel = featVec[-1]
@@ -26,19 +25,23 @@ def calcShannonEnt(dataSet):
 			labelCounts[currentLabel] = 0
 		labelCounts[currentLabel] += 1
 	shannonEnt = 0.0# the Entropy
+	numEntries = len(dataSet)
 	for key in labelCounts:
 		prob = float(labelCounts[key]) / numEntries
 		shannonEnt -= prob * log(prob, 2)
 	return shannonEnt
 
 
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# II: split the dataset
+
 def splitDataSet(dataSet, axis, value):
 	"""split the dataSet"""
 	retDataSet = []
 	for featVec in dataSet:
 		if featVec[axis] == value:
-			reducedFeatVec = featVec[:axis]# the chip
-			reducedFeatVec.extend(featVec[axis+1:])# extend the left
+			reducedFeatVec = featVec[:axis]# the before..
+			reducedFeatVec.extend(featVec[axis+1:])# the after..
 			retDataSet.append(reducedFeatVec)
 	return retDataSet
 
@@ -65,7 +68,10 @@ def chooseBestFeatureToSplit(dataSet):
 			bestInfoGain = infoGain
 			bestFeature = i
 	return bestFeature
-	
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# III: build the Decision Tree
 
 def majorityCnt(classList):
 	"""find the majority"""
@@ -82,17 +88,18 @@ def majorityCnt(classList):
 
 def createTree(dataSet, labels):
 	"""(core algorithm) -> create the Tree"""
+	# cut leaf & terminate
 	classList = [example[-1] for example in dataSet]
-	if classList.count(classList[0] == len(classList)):
+	if classList.count(classList[0]) == len(classList):
 		return classList[0]
 	if len(dataSet[0]) == 1:
 		return majorityCnt(classList)
+	
 	# recursively build the tree
 	bestFeat = chooseBestFeatureToSplit(dataSet)
-	# print bestFeat
 	bestFeatLabel = labels[bestFeat]
-	del(labels[bestFeat])
 	myTree = {bestFeatLabel:{}}
+	del(labels[bestFeat])
 	# get all the values releated to 'bestFeat' as a list
 	featValues = [example[bestFeat] for example in dataSet]
 	uniqueVals = set(featValues)
@@ -103,3 +110,32 @@ def createTree(dataSet, labels):
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# IV: the classify function
+
+def classify(inputTree, featLabels, testVec):
+	"""(core algorithm) -> the classify function"""
+	firstStr = inputTree.keys()[0]# the first key (as the feature)
+	secondDict = inputTree[firstStr]# the first value (is a dictionary)
+	featIndex = featLabels.index(firstStr)# the index of above feature
+	for key in secondDict.keys():# enumerate all the values of the first key
+		if testVec[featIndex] == key:
+			if type(secondDict[key]).__name__ == 'dict':# is a dict -> recursive..
+				classLabel = classify(secondDict[key], featLabels, testVec)
+			else:# is a leaf -> stop this function
+				classLabel = secondDict[key]
+	return classLabel
+
+
+def storeTree(inputTree, filename):
+	"""write the tree to file"""
+	import pickle
+	fw = open(filename, 'w')
+	pickle.dump(inputTree, fw)
+	fw.close()
+
+
+def grabTree(filename):
+	"""read from the file"""
+	import pickle
+	fr = open(filename)
+	return pickle.load(fr)
